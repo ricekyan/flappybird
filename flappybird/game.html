@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Flappy Bird</title>
+</head>
+
+<body>
+    <canvas id="cvs" width="800" height="600"></canvas>
+    <script src="load_imgs.js"></script>
+    <script src="bird.js"></script>
+    <script src="pipe.js"></script>
+    <script src="sky.js"></script>
+    <script src="land.js"></script>
+    <script src="renderView.js"></script>
+    <script>
+        var cvs = document.getElementById('cvs');
+        // getContext() 方法返回一个用于在画布上绘图的环境。
+        var ctx = cvs.getContext('2d');
+
+        function main() {
+            // 模型（程序运行的数据）
+            var model = {
+                displayObjects: [], // 屏幕上的显示对象
+                gameOver: false, // 是否游戏结束
+                bird: null,
+                pipes: [],
+                skys: [],
+                lands: []
+            };
+
+            // 创建鸟
+            var bird = new Bird(ctx, images['birds']);
+            // 创建管子
+            var pipeCount = 4;
+            for (var i = 0; i < pipeCount; i++) {
+                var pipe = new Pipe(ctx, 800 + (800 + 52) / pipeCount * i, images['pipe1'], images['pipe2'], -0.1);
+                model.pipes.push(pipe);
+            }
+            // 创建天空
+            for (var i = 0; i < 2; i++) {
+                var sky = new Sky(ctx, 800 * i, images['sky'], -0.03);
+                model.skys.push(sky);
+            }
+            // 创建大地
+            for (var i = 0; i < 4; i++) {
+                var land = new Land(ctx, 336 * i, images['land'], -0.1);
+                model.lands.push(land);
+            }
+
+
+            var controllers = {
+                onEnterFrame: function() { // 每帧开始时发生的事情
+                    model.displayObjects = [];
+                    model.displayObjects = model.displayObjects.concat(model.skys);
+                    model.displayObjects = model.displayObjects.concat(model.pipes);
+                    model.displayObjects = model.displayObjects.concat(model.lands);
+                    model.displayObjects.push(bird);
+                },
+                onRenderedFrame: function() { // 每帧渲染结束后，发生的事情
+                    if (bird.y > 490 || bird.y < 0) { // 检查鸟有没有掉地板上或者撞天花板上
+                        model.gameOver = true;
+                    }
+                    if (ctx.isPointInPath(bird.x, bird.y)) {
+                        model.gameOver = true;
+                    }
+                    ctx.beginPath();
+                    for (var i = 0; i < model.pipes.length; i++) { // 当一根管子消失在屏幕左侧时，回收再利用
+                        var target = model.pipes[i];
+                        if (target.x <= -52) {
+                            target.build();
+                        }
+                    }
+                    for (var i = 0; i < model.skys.length; i++) { // 当一块天空消失在屏幕左侧时，回收再利用
+                        var target = model.skys[i];
+                        if (target.x <= -800) {
+                            target.build();
+                        }
+                    }
+                    for (var i = 0; i < model.lands.length; i++) { // 当一块大地消失在屏幕左侧时，回收再利用
+                        var target = model.lands[i];
+                        if (target.x <= -336) {
+                            target.build();
+                        }
+                    }
+                },
+                onTap: function() { // Canvas被点击时，发生的事情
+                    bird.speed = -0.3;
+                }
+            };
+            cvs.addEventListener('click', controllers.onTap); // 对canvas新增点击事件
+
+
+            function loop(lastTime) {
+
+                // 触发每帧开始的控制器
+                controllers.onEnterFrame();
+
+                // 视图的刷新
+                var now = Date.now();
+                var deltaTime = now - lastTime;
+                renderView(ctx, model, deltaTime);
+
+
+                // 触发进入某帧渲染完毕的控制器
+                controllers.onRenderedFrame();
+
+                // 因为我们的loop函数需要一个时间参数，
+                // 而requestAnimationFrame函数调用回调函数时，传入的是他自己的参数
+                // 所以我们需要用bind将当前时间绑定到一个新的函数上
+                var loopWithTime = loop.bind(window, now);
+                if (!model.gameOver) {
+                    requestAnimationFrame(loopWithTime);
+                }
+            }
+
+            loop(Date.now())
+        }
+    </script>
+</body>
+
+</html>
